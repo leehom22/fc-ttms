@@ -1,6 +1,6 @@
 <template>
     <div>
-        Lecturer page
+        Analysis page
     </div>
 </template>
 

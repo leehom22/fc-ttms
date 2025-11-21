@@ -1,0 +1,9 @@
+export { default as Analysis } from './Analysis.vue';
+export { default as Courses } from './Courses.vue';
+export { default as Home } from './Home.vue';
+export { default as Lecturer } from './Lecturer.vue';
+export { default as Login } from './Login.vue';
+export { default as Student } from './Student.vue';
+export { default as Timetable } from './Timetable.vue';
+export { default as Venue } from './Venue.vue';
+export { default as Admin } from './Admin.vue';
