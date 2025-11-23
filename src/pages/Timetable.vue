@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, computed } from "vue";
 import { 
-    Search, Filter, Eye, ArrowLeft, Loader2, ArrowUpDown, X
+    Search, Filter, Eye, ArrowLeft, Loader2, ArrowUpDown, X, MapPin, ChevronLeft, ChevronRight
 } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,14 +17,16 @@ const loading = ref(false);
 const error = ref("");
 const timetableData = ref([]);
 
-// --- SORTING STATE ---
-const sortBy = ref('time'); 
+// SESSION STATE
+const currentSesi = ref("");
+const currentSem = ref("");
 
-// --- FILTER STATE ---
+// --- SORTING & FILTERING STATE ---
+const sortBy = ref('time'); 
 const isFilterOpen = ref(false); 
 const selectedDay = ref(null);   
 
-// --- MAPPING FOR DROPDOWN ---
+// --- MAPPING ---
 const availableDays = [
     { value: 2, label: "Monday" },
     { value: 3, label: "Tuesday" },
@@ -33,11 +35,11 @@ const availableDays = [
     { value: 6, label: "Friday" }, 
 ];
 
-// --- SEARCH, FILTER & SORT LOGIC ---
+// --- COMPUTED PROPERTIES ---
 const filteredTimetable = computed(() => {
     let data = [...timetableData.value];
 
-    // 1. Filter by Search Query
+    // 1. Filter by Search
     if (searchQuery.value) {
         const query = searchQuery.value.toLowerCase();
         data = data.filter(item => {
@@ -52,7 +54,7 @@ const filteredTimetable = computed(() => {
         data = data.filter(item => item.hari == selectedDay.value);
     }
 
-    // 3. Sorting Logic
+    // 3. Sort
     if (sortBy.value === 'subject') {
         data.sort((a, b) => a.nama_subjek.localeCompare(b.nama_subjek));
     } else {
@@ -65,23 +67,19 @@ const filteredTimetable = computed(() => {
     return data;
 });
 
-// --- HELPER: CONVERT UTM DAYS ---
+// --- HELPERS ---
 const formatDay = (day) => {
-    const days = {
-        1: "Sunday", 2: "Monday", 3: "Tuesday", 4: "Wednesday", 5: "Thursday", 6: "Friday", 7: "Saturday",
-        "AHAD": "Sunday", "ISNIN": "Monday", "SELASA": "Tuesday", "RABU": "Wednesday", "KHAMIS": "Thursday"
-    };
+    const days = { 1: "Sunday", 2: "Monday", 3: "Tuesday", 4: "Wednesday", 5: "Thursday", 6: "Friday", 7: "Saturday" };
     return days[day] || day; 
 }
 
-// --- HELPER: FORMAT TIME ---
-const formatSingleBlock = (apiMasa) => {
+const formatTime = (apiMasa) => {
     const startHour = parseInt(apiMasa) + 6; 
     const pad = (n) => n < 10 ? '0' + n : n;
     return `${pad(startHour)}00 - ${pad(startHour)}50`;
 }
 
-// --- API FETCH LOGIC ---
+// --- API ACTIONS ---
 const fetchTimetable = async () => {
     loading.value = true;
     error.value = "";
@@ -93,54 +91,95 @@ const fetchTimetable = async () => {
     }
 
     try {
-        // 1. Get Subjects
-        const subjectsRes = await axios.get('http://web.fc.utm.my/ttms/web_man_webservice_json.cgi', {
-            params: { entity: 'pelajar_subjek', no_matrik: userStore.matric_no }
-        });
+        // -----------------------------------------
+        // STEP 1: FETCH SUBJECTS (Try Student OR Lecturer)
+        // -----------------------------------------
+        let allSubjects = [];
+        
+        // ATTEMPT A: Try Student Endpoint
+        try {
+            const studentRes = await axios.get('http://web.fc.utm.my/ttms/web_man_webservice_json.cgi', {
+                params: { entity: 'pelajar_subjek', no_matrik: userStore.matric_no }
+            });
+            if (Array.isArray(studentRes.data) && studentRes.data.length > 0) {
+                allSubjects = studentRes.data;
+            }
+        } catch (e) {
+            // Ignore
+        }
 
-        const allSubjects = subjectsRes.data;
+        // ATTEMPT B: If empty, Try Lecturer Endpoint
+        if (allSubjects.length === 0) {
+            try {
+                const lecturerRes = await axios.get('http://web.fc.utm.my/ttms/web_man_webservice_json.cgi', {
+                    params: { entity: 'pensyarah_subjek', no_pekerja: userStore.matric_no }
+                });
+                if (Array.isArray(lecturerRes.data) && lecturerRes.data.length > 0) {
+                    allSubjects = lecturerRes.data;
+                }
+            } catch (e) {
+                // Ignore
+            }
+        }
 
-        if (!allSubjects || allSubjects.length === 0) {
-            error.value = "No subjects found.";
+        if (allSubjects.length === 0) {
+            error.value = "No subjects found for this semester.";
             loading.value = false;
             return;
         }
 
-        // 2. Auto-Detect Current Session
-        const currentSesi = allSubjects[0].sesi;     
-        const currentSem = allSubjects[0].semester;  
+        // -----------------------------------------
+        // STEP 2: AUTO-DETECT SESSION
+        // -----------------------------------------
+        currentSesi.value = allSubjects[0].sesi;     
+        currentSem.value = allSubjects[0].semester;  
+        
         const currentSubjects = allSubjects.filter(sub => 
-            sub.sesi === currentSesi && sub.semester == currentSem
+            sub.sesi === currentSesi.value && sub.semester == currentSem.value
         );
 
-        // 3. Fetch Details
+        // -----------------------------------------
+        // STEP 3: FETCH SCHEDULE DETAILS
+        // -----------------------------------------
         const detailedRequests = currentSubjects.map(async (subject) => {
+            
+            // A. Schedule
             const schedulePromise = axios.get('http://web.fc.utm.my/ttms/web_man_webservice_json.cgi', {
                 params: {
                     entity: 'jadual_subjek',
-                    sesi: currentSesi,
-                    semester: currentSem,
+                    sesi: currentSesi.value,
+                    semester: currentSem.value,
                     kod_subjek: subject.kod_subjek,
                     seksyen: subject.seksyen
                 }
             });
 
+            // B. Lecturer Info
             const lecturerPromise = axios.get('http://web.fc.utm.my/ttms/web_man_webservice_json.cgi', {
                 params: {
                     entity: 'subjek_pensyarah',
-                    sesi: currentSesi,
-                    semester: currentSem,
+                    sesi: currentSesi.value,
+                    semester: currentSem.value,
                     kod_subjek: subject.kod_subjek,
                     seksyen: subject.seksyen
                 }
             });
 
-            const [scheduleRes, lecturerRes] = await Promise.all([schedulePromise, lecturerPromise]);
-            const schedules = scheduleRes.data || [];
+            const [scheduleRes, lecturerRes] = await Promise.allSettled([schedulePromise, lecturerPromise]);
+
+            // SAFER PARSING
+            let rawSchedules = [];
+            if (scheduleRes.status === 'fulfilled' && Array.isArray(scheduleRes.value.data)) {
+                rawSchedules = scheduleRes.value.data;
+            }
+
+            // CRITICAL FIX: Remove nulls before mapping
+            const schedules = rawSchedules.filter(s => s && s.masa);
             
+            // Find Lecturer Name
             let lecturerName = "Not Assigned";
-            if (lecturerRes.data && lecturerRes.data.length > 0) {
-                const lect = lecturerRes.data[0];
+            if (lecturerRes.status === 'fulfilled' && lecturerRes.value.data && lecturerRes.value.data.length > 0) {
+                const lect = lecturerRes.value.data[0];
                 lecturerName = lect.nama || lect.nama_pensyarah || lect.nama_staf || "Unknown";
             }
 
@@ -160,12 +199,16 @@ const fetchTimetable = async () => {
         });
 
         const nestedResults = await Promise.all(detailedRequests);
-        // We don't sort here anymore, the computed property handles it!
-        timetableData.value = nestedResults.flat();
+        
+        // 4. Sort Results
+        timetableData.value = nestedResults.flat().sort((a, b) => {
+            if (a.hari != b.hari) return a.hari - b.hari;
+            return a.masa - b.masa;
+        });
 
     } catch (err) {
         console.error(err);
-        error.value = "Failed to fetch data. Ensure CORS Extension is ON.";
+        error.value = "Failed to fetch data. Ensure CORS is ON.";
     } finally {
         loading.value = false;
     }
@@ -182,22 +225,14 @@ const goBack = () => {
     selectedItem.value = null;
 }
 
-// Actions for Filter
-const toggleFilter = () => {
-    isFilterOpen.value = !isFilterOpen.value;
-}
-const selectDay = (dayValue) => {
-    selectedDay.value = dayValue;
-    isFilterOpen.value = false; 
-}
-const clearFilter = () => {
-    selectedDay.value = null;
-    isFilterOpen.value = false;
-}
+// UI Actions
+const toggleFilter = () => { isFilterOpen.value = !isFilterOpen.value; }
+const selectDay = (dayValue) => { selectedDay.value = dayValue; isFilterOpen.value = false; }
+const clearFilter = () => { selectedDay.value = null; isFilterOpen.value = false; }
 </script>
 
 <template>
-    <div class="p-4 md:p-6 max-w-4xl mx-auto min-h-screen" @click="isFilterOpen = false">
+    <div class="p-4 md:p-6 w-full min-h-screen" @click="isFilterOpen = false">
         
         <div v-if="loading" class="flex flex-col items-center justify-center h-64 text-gray-500">
             <Loader2 class="w-8 h-8 animate-spin mb-2 text-primary" />
@@ -213,7 +248,7 @@ const clearFilter = () => {
             <div class="mb-6">
                  <h1 class="text-2xl font-bold text-primary">Timetable</h1>
                  <p class="text-gray-500 text-sm" v-if="timetableData.length > 0">
-                    Session {{ timetableData[0].sesi }} | Semester {{ timetableData[0].semester }}
+                    Session {{ currentSesi || '...' }} | Semester {{ currentSem || '...' }}
                  </p>
             </div>
 
@@ -286,7 +321,7 @@ const clearFilter = () => {
                     <div class="w-auto text-xs text-gray-500 flex flex-col items-end mr-4">
                         <span class="font-semibold text-primary uppercase">{{ formatDay(item.hari) }}</span>
                         <span class="text-[10px] md:text-xs font-mono">
-                            {{ formatSingleBlock(item.masa) }}
+                            {{ formatTime(item.masa) }}
                         </span>
                     </div>
 
@@ -326,7 +361,7 @@ const clearFilter = () => {
                         <div>
                             <p class="text-xs text-gray-400 font-medium mb-1">Schedule</p>
                             <p class="text-sm font-medium text-gray-800">
-                                {{ formatDay(selectedItem.hari) }}, {{ formatSingleBlock(selectedItem.masa) }}
+                                {{ formatDay(selectedItem.hari) }}, {{ formatTime(selectedItem.masa) }}
                             </p>
                         </div>
 

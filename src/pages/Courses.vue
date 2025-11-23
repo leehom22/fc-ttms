@@ -1,7 +1,7 @@
 <script setup>
 import { ref, onMounted, computed, watch } from "vue";
 import { 
-    Search, Filter, Eye, ArrowLeft, Loader2, Users, BookOpen, GraduationCap, ChevronLeft, ChevronRight
+    Search, Filter, Eye, ArrowLeft, Loader2, Users, GraduationCap, ChevronLeft, ChevronRight
 } from "lucide-vue-next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,9 +16,9 @@ const loading = ref(false);
 const error = ref("");
 const searchQuery = ref("");
 
-// SESSION STATE (Auto-Detected)
+// SESSION STATE
 const currentSesi = ref("");
-const currentSem = ref("");
+const currentSem = ref(1);
 
 // PAGINATION STATE
 const currentPage = ref(1);
@@ -91,7 +91,7 @@ const fetchCourses = async () => {
     }
 
     try {
-        // STEP A: Find out "What time is it?" using your history
+        // STEP A: Detect Session from History
         const historyRes = await axios.get('http://web.fc.utm.my/ttms/web_man_webservice_json.cgi', {
             params: { entity: 'pelajar_subjek', no_matrik: userStore.matric_no }
         });
@@ -99,18 +99,17 @@ const fetchCourses = async () => {
         const myHistory = historyRes.data;
         
         if (!myHistory || myHistory.length === 0) {
-            // Fallback if new student with no history
-            currentSesi.value = "2025/2026";
+            // Fallback: Calculate current year dynamically
+            const today = new Date();
+            const year = today.getFullYear();
+            currentSesi.value = `${year}/${year + 1}`;
             currentSem.value = 1;
         } else {
-            // Grab top item (latest)
             currentSesi.value = myHistory[0].sesi;
             currentSem.value = myHistory[0].semester;
         }
 
-        console.log(`Detected Session: ${currentSesi.value}, Sem: ${currentSem.value}`);
-
-        // STEP B: Fetch Directory for THAT Session
+        // STEP B: Fetch Directory
         const dirRes = await axios.get('http://web.fc.utm.my/ttms/web_man_webservice_json.cgi', {
             params: {
                 entity: 'subjek', 
@@ -130,10 +129,9 @@ const fetchCourses = async () => {
     }
 };
 
-// LEVEL 2: Fetch Details (Using Correct Session)
+// LEVEL 2: Fetch Details
 const openCourseDetail = async (course) => {
     loading.value = true;
-    // Initialize
     selectedCourse.value = { 
         ...course, 
         kredit: course.kredit || course.jam_kredit || "...", 
@@ -141,27 +139,25 @@ const openCourseDetail = async (course) => {
     }; 
     
     try {
-        // Fetch ALL sections for this subject in the CURRENT session
+        // Fetch ALL sections
         const response = await axios.get('http://web.fc.utm.my/ttms/web_man_webservice_json.cgi', {
             params: {
                 entity: 'subjek_seksyen',
-                sesi: currentSesi.value,     // <--- USE DETECTED SESSION
-                semester: currentSem.value,  // <--- USE DETECTED SEMESTER
+                sesi: currentSesi.value,     
+                semester: currentSem.value,  
                 limit: 1000 
             }
         });
 
         const allSubjectsData = response.data || [];
-        // Find our subject in the big list
         const matchedSubject = allSubjectsData.find(s => s.kod_subjek === course.kod_subjek);
 
         if (matchedSubject && matchedSubject.seksyen_list) {
             courseSections.value = matchedSubject.seksyen_list;
             courseSections.value.sort((a, b) => parseInt(a.seksyen) - parseInt(b.seksyen));
             
-            // Update Metadata if we found better data
             if(matchedSubject.bil_pelajar) {
-                // could update total students here if needed
+                // Metadata update if needed
             }
         } else {
             courseSections.value = [];
@@ -170,7 +166,6 @@ const openCourseDetail = async (course) => {
         currentView.value = 2; 
     } catch (err) {
         error.value = "Failed to load course details.";
-        console.error(err);
     } finally {
         loading.value = false;
     }
@@ -188,8 +183,8 @@ const openSectionDetail = async (section) => {
             params: {
                 entity: 'subjek_pelajar', 
                 session_id: sessionId,
-                sesi: currentSesi.value,    // <--- USE DETECTED SESSION
-                semester: currentSem.value, // <--- USE DETECTED SEMESTER
+                sesi: currentSesi.value,    
+                semester: currentSem.value, 
                 kod_subjek: selectedCourse.value.kod_subjek,
                 seksyen: section.seksyen
             }
@@ -339,6 +334,7 @@ onMounted(() => {
                         </button>
                     </div>
                 </div>
+                
                 <div v-if="courseSections.length === 0" class="p-4 text-center text-gray-400">
                     No sections found.
                 </div>
