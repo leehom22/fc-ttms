@@ -41,6 +41,7 @@ const goToPages = (page) => {
                 <a href="/lecturer" class="text-black hover:text-gray-900">Lecturer</a>
                 <a href="/students" class="text-black hover:text-gray-900">Student</a>
                 <a href="/admin" v-if="isAdmin" class="text-black hover:text-gray-900">Admin</a>
+                <a href="/curriculum" class="text-black hover:text-gray-900">Curriculum</a>
             </div>
 
             <!-- Logout Button using shadcn Button -->
@@ -104,6 +105,9 @@ const goToPages = (page) => {
                     <button class="drawer-list" v-if="isAdmin" @click="goToPages('/admin')">
                         <UserStar class="text-black" />
                         Admin
+                    </button>
+                    <button class="drawer-list" @click="goToPages('/curriculum')">
+                        <School class="text-black" /> Curriculum
                     </button>
                 </div>
 

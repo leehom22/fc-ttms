@@ -1,6 +1,7 @@
 import {createRouter,createWebHistory} from 'vue-router'
 import { useUserStore } from '../stores/user.js'
 import { Home, Timetable, Courses, Analysis, Venue, Lecturer, Student, Admin, Login } from '../pages/index.js'
+import CurriculumRoadmap from '../pages/CurriculumRoadmap.vue';
 const routes = [
     { path: '/' , component: Home  },
     { path: '/login' , component: Login   },
@@ -12,6 +13,7 @@ const routes = [
     { path: '/lecturer' , component: Lecturer  },
     { path: '/students' , component: Student  },
     { path: '/admin' , component: Admin  },
+    { path: '/curriculum', component: CurriculumRoadmap },
 ]
 
 const router = createRouter({
