@@ -2,7 +2,7 @@
 import { Button } from "@/components/ui/button"; // shadcn Button import
 import { useUserStore } from "@/stores/user";
 import { ChartLine, GraduationCap, House, LibraryBig, School, Sheet, Users, UserStar } from "lucide-vue-next";
-import { ref } from "vue";
+import { onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { toast } from "vue-sonner";
 
@@ -26,26 +26,36 @@ const goToPages = (page) => {
     router.push(page)
 }
 
+onMounted(() => {
+  const session = localStorage.getItem("session_id_utm_ttms");
+
+  if (session) {
+    user.isLoggedIn = true;   // Make the store reactive
+  }
+});
+
 </script>
 <template>
     <div>
         <!-- Navbar -->
         <nav class="hidden md:flex justify-between items-center px-6 py-4 shadow-md">
-            <div class="flex items-center justify-between space-x-4 w-1/2">
+            <div class="flex items-center justify-between space-x-4 w-1/2" >
                 <img src="../assets/utm-logo.png" class="h-10 w-30 object-cover" />
-                <a href="/" class="text-black hover:text-gray-900">Dashboard</a>
-                <a href="/timetable" class="text-black hover:text-gray-900" >Timetable</a>
-                <a href="/courses" class="text-black hover:text-gray-900">Courses</a>
-                <a href="/analysis" class="text-black hover:text-gray-900">Analysis</a>
-                <a href="/venue" class="text-black hover:text-gray-900">Venue</a>
-                <a href="/lecturer" class="text-black hover:text-gray-900">Lecturer</a>
-                <a href="/students" class="text-black hover:text-gray-900">Student</a>
-                <a href="/admin" v-if="isAdmin" class="text-black hover:text-gray-900">Admin</a>
+                <a href="/" class="text-black hover:text-gray-900" v-if="user.isLoggedIn">Dashboard</a>
+                <a href="/timetable" class="text-black hover:text-gray-900" v-if="user.isLoggedIn">Timetable</a>
+                <a href="/courses" class="text-black hover:text-gray-900" v-if="user.isLoggedIn">Courses</a>
+                <a href="/analysis" class="text-black hover:text-gray-900" v-if="user.isLoggedIn">Analysis</a>
+                <a href="/venue" class="text-black hover:text-gray-900" v-if="user.isLoggedIn">Venue</a>
+                <a href="/lecturer" class="text-black hover:text-gray-900" v-if="user.isLoggedIn">Lecturer</a>
+                <a href="/students" class="text-black hover:text-gray-900" v-if="user.isLoggedIn">Student</a>
+                <a href="/admin" v-if="isAdmin" class="text-black hover:text-gray-900" >Admin</a>
             </div>
 
-            <!-- Logout Button using shadcn Button -->
-            <Button variant="outline" color="destructive" @click="handleLogout">
+            <Button variant="outline" color="destructive" @click="handleLogout" v-if="user.isLoggedIn">
                 Logout
+            </Button>
+            <Button variant="outline" color="destructive" @click="handleLogout" v-if="!user.isLoggedIn">
+                Login
             </Button>
         </nav>
 
