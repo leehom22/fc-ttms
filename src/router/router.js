@@ -19,24 +19,24 @@ const router = createRouter({
   routes,
 })
 
-router.beforeEach((to) => {
-  const user = useUserStore()
-  const session_id = localStorage.getItem("session_id_utm_ttms")
+// router.beforeEach((to) => {
+//   const user = useUserStore()
+//   const session_id = localStorage.getItem("session_id_utm_ttms")
 
-  // If user is not logged in
-  if (to.meta.requiresAuth && !session_id) {
-    return "/login"
-  } 
+//   // If user is not logged in
+//   if (to.meta.requiresAuth && !session_id) {
+//     return "/login"
+//   } 
 
-  // If route requires a specific role
-  // Check if route requires a specific role
-  if (to.meta.role && user.role !== to.meta.role) {
-    // Redirect based on role or fallback
-    if (user.role === "student") return "/home"
-    if (user.role === "admin") return "/admin"
-    return "/" // fallback
-  }
-})
+//   // If route requires a specific role
+//   // Check if route requires a specific role
+//   if (to.meta.role && user.role !== to.meta.role) {
+//     // Redirect based on role or fallback
+//     if (user.role === "student") return "/home"
+//     if (user.role === "admin") return "/admin"
+//     return "/" // fallback
+//   }
+// })
 
 
 export default router
