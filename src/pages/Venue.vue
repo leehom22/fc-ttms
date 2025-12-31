@@ -15,6 +15,9 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
+import Label from "@/components/ui/label/Label.vue";
+import CardHeader from "@/components/ui/card/CardHeader.vue";
+import CardTitle from "@/components/ui/card/CardTitle.vue";
 
 // --- STATE MANAGEMENT ---
 const userStore = useUserStore();
@@ -159,7 +162,7 @@ const openVenueDetail = async (venue) => {
                 limit: 2000
             }
         });
-
+        
         venueSchedule.value = response.data || [];
         currentView.value = 2;
     } catch (err) {
