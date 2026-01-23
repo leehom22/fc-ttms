@@ -1,7 +1,7 @@
 <script setup>
 import { Button } from "@/components/ui/button";
 import { useUserStore } from "@/stores/user";
-import { Loader2, AlertCircle } from "lucide-vue-next"; // ✅ added AlertCircle
+import { Loader2, AlertCircle } from "lucide-vue-next";
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import { toast } from "vue-sonner";
@@ -17,6 +17,8 @@ import {
 } from "chart.js";
 import axios from "axios";
 import { readSessionJSON, writeSessionJSON } from "@/stores/sessionStorage";
+import mockLecturer12085 from "@/mocks/mock-ttms-lecturer-12085.json";
+// ✅ NEW: import your mock JSON file (place it in src/mocks/ for example)
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Title, Tooltip, Legend);
 
@@ -43,6 +45,9 @@ const isFresh = (savedAt) => {
 
 const lecturerSubjects = ref([]);
 const totalLecturerStudents = ref(0);
+
+// ✅ NEW: identify dummy lecturer
+const DUMMY_LECTURER_ID = "12085";
 
 onMounted(async () => {
   if (user.role === "student") {
@@ -117,6 +122,60 @@ const fetchLecturerData = async () => {
       isLoading.value = false;
       return;
     }
+
+    // ✅ NEW: If dummy lecturer, use mock JSON instead of calling API
+    if (matricNo === DUMMY_LECTURER_ID) {
+      const staffSubjects = mockLecturer12085.pensyarah_subjek || [];
+
+      if (staffSubjects.length === 0) {
+        lecturerSubjects.value = [];
+        totalLecturerStudents.value = 0;
+        studentSession.value = "";
+        studentSem.value = "";
+
+        writeSessionJSON(cacheKeyLecturer.value, {
+          savedAt: Date.now(),
+          subjects: [],
+          session: "",
+          semester: "",
+          totalStudents: 0,
+        });
+
+        return;
+      }
+
+      studentSession.value = staffSubjects[0].sesi;
+      studentSem.value = staffSubjects[0].semester;
+
+      const allDist = mockLecturer12085.subjek_seksyen || [];
+
+      totalLecturerStudents.value = 0;
+
+      lecturerSubjects.value = staffSubjects.map((sub) => {
+        const match = allDist.find((d) => d.kod_subjek === sub.kod_subjek);
+        const sectionDetail = match?.seksyen_list?.find(
+          (s) => String(s.seksyen) === String(sub.seksyen)
+        );
+        const count = sectionDetail ? parseInt(sectionDetail.bil_pelajar) : 0;
+
+        totalLecturerStudents.value += count;
+        return { ...sub, bil_pelajar: count };
+      });
+
+      writeSessionJSON(cacheKeyLecturer.value, {
+        savedAt: Date.now(),
+        subjects: lecturerSubjects.value,
+        session: studentSession.value,
+        semester: studentSem.value,
+        totalStudents: totalLecturerStudents.value,
+      });
+
+      return;
+    }
+
+    // ---------------------------
+    // Normal (real API) lecturer flow
+    // ---------------------------
 
     // 1. Get Lecturer Subjects
     const subRes = await axios.get(import.meta.env.VITE_BASE_URL, {
